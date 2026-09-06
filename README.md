@@ -1,23 +1,31 @@
-PROJECT TITLE: E-Commerce Supply Chain & Sales Data Analysis
-DOMAIN: E-commerce / Retail
-TOOL USED: MySQL Workbench
+# 🛒 E-Commerce Supply Chain & Sales Data Analysis
 
+**Domain:** E-commerce / Retail Supply Chain  
+**Tools Used:** MySQL, Data Engineering (ETL)  
+**Dataset:** Olist Brazilian E-Commerce (Kaggle)
 
+## 📌 Project Overview
+This project focuses on analyzing real-world e-commerce data to extract actionable business insights. The analysis targets three core areas critical to any GCC (like Walmart or Target): 
+1. **SLA Breaches:** Identifying regions with the most late deliveries.
+2. **Revenue Analysis:** Finding the most profitable product categories.
+3. **Logistics Optimization:** Calculating average shipping costs (freight) across different states.
 
---- PHASE 1: DATABASE SETUP & DATA IMPORT (DATA ENGINEERING) ---
+---
 
-1. Creating the Database:
+## ⚙️ PHASE 1: DATABASE SETUP & DATA IMPORT (Data Engineering)
 
+### 1. Creating the Database
+```sql
 CREATE DATABASE olist_ecommerce;
 USE olist_ecommerce;
+```
 
-
-2. Creating Tables & Importing Data (Bulk Load):
-
+2. Creating Tables & Importing Data (Bulk Load)
 Objective: Optimized data ingestion using LOAD DATA INFILE to handle 100k+ rows efficiently, bypassing slow UI import wizards.
 
 A. Orders Table:
 
+```sql
 CREATE TABLE olist_orders_dataset (
     order_id VARCHAR(50),
     customer_id VARCHAR(50),
@@ -29,11 +37,15 @@ CREATE TABLE olist_orders_dataset (
     order_estimated_delivery_date DATETIME
 );
 
+
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/olist_orders_dataset.csv'
 INTO TABLE olist_orders_dataset
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS;
+```
+
 B. Order Items Table:
 
+```sql
 CREATE TABLE IF NOT EXISTS olist_order_items_dataset (
     order_id VARCHAR(50),
     order_item_id INT,
@@ -47,8 +59,11 @@ CREATE TABLE IF NOT EXISTS olist_order_items_dataset (
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/olist_order_items_dataset.csv'
 INTO TABLE olist_order_items_dataset
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS;
+```
+
 C. Customers Table:
 
+```sql
 CREATE TABLE olist_customers_dataset (
     customer_id VARCHAR(50),
     customer_unique_id VARCHAR(50),
@@ -57,11 +72,15 @@ CREATE TABLE olist_customers_dataset (
     customer_state VARCHAR(10)
 );
 
+
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/olist_customers_dataset.csv'
 INTO TABLE olist_customers_dataset
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS;
+```
+
 D. Products Table:
 
+```sql
 CREATE TABLE olist_products_dataset (
     product_id VARCHAR(50),
     product_category_name VARCHAR(100),
@@ -77,19 +96,18 @@ CREATE TABLE olist_products_dataset (
 LOAD DATA INFILE 'C:/ProgramData/MySQL/MySQL Server 8.0/Uploads/olist_products_dataset.csv'
 INTO TABLE olist_products_dataset
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS;
+```
 
 
-
---- PHASE 2: DATA ANALYSIS (BUSINESS LOGIC) ---
-
-
+## 📊 PHASE 2: DATA ANALYSIS (Business Logic)
 BUSINESS PROBLEM 1: Analyzing Late Deliveries (SLA Breaches) by State
 
-Objective: To identify which states have the highest number of late deliveries to optimize warehouse locations.
+### Objective: To identify which states have the highest number of late deliveries to optimize warehouse locations.
 
-Step 1.1 : Filtering Late Orders
+Step 1.1: Filtering Late Orders
 Logic: Isolating orders where the actual delivery date crossed the estimated delivery date.
 
+```sql
 SELECT 
     order_id, 
     customer_id, 
@@ -100,11 +118,12 @@ FROM
 WHERE 
     order_status = 'delivered' 
     AND order_delivered_customer_date > order_estimated_delivery_date;
+```
 
+Step 1.2: Mapping Orders to States (JOIN)
+Logic: Connecting the filtered late orders to the Customers table to retrieve state names.
 
-Step 1.2 : Mapping Orders to States (JOIN)
-Logic: Connecting the filtered late orders to the Customers table to retrieve the state names.
-
+```sql
 SELECT 
     o.order_id, 
     c.customer_state
@@ -115,10 +134,12 @@ JOIN
 WHERE 
     o.order_status = 'delivered' 
     AND o.order_delivered_customer_date > o.order_estimated_delivery_date;
+```
 
-Step 1.3 : Final Output - Top 10 States with Late Deliveries
+Step 1.3: Final Output - Top 10 States with Late Deliveries
 Logic: Aggregating the data by state to find the worst-performing regions.
 
+```sql
 SELECT 
     c.customer_state AS State, 
     COUNT(o.order_id) AS Total_Late_Deliveries
@@ -134,26 +155,27 @@ GROUP BY
 ORDER BY 
     Total_Late_Deliveries DESC
 LIMIT 10;
+```
 
+BUSINESS PROBLEM 2: Revenue Generation by Product Category  
+Objective: To identify the most profitable product categories for the company.  
 
-BUSINESS PROBLEM 2: Revenue Generation by Product Category
-Objective: To identify the most profitable product categories for the company.
+Step 2.1: Extracting Base Prices
+Logic: Pulling individual item prices from the order items table.  
 
-
-Step 2.1 : Extracting Base Prices
-Logic: Pulling individual item prices from the order items table.
-
+```sql
 SELECT 
     order_id, 
     product_id, 
     price 
 FROM 
     olist_order_items_dataset;
+```
 
-
-Step 2.2 : Mapping Product Names (JOIN)
+Step 2.2: Mapping Product Names (JOIN)
 Logic: Joining with the Products table to replace raw product IDs with actual category names.
 
+```sql
 SELECT 
     i.order_id, 
     p.product_category_name, 
@@ -162,11 +184,12 @@ FROM
     olist_order_items_dataset i
 JOIN 
     olist_products_dataset p ON i.product_id = p.product_id;
+```
 
-
-Step 2.3 : Final Output - Top 10 Most Profitable Categories
+Step 2.3: Final Output - Top 10 Most Profitable Categories
 Logic: Summing up the prices grouped by category to find the highest revenue generators.
 
+```sql
 SELECT 
     p.product_category_name AS Category, 
     ROUND(SUM(i.price), 2) AS Total_Revenue
@@ -181,14 +204,15 @@ GROUP BY
 ORDER BY 
     Total_Revenue DESC
 LIMIT 10;
-
+```
 
 BUSINESS PROBLEM 3: Analyzing Logistics & Shipping Costs
 Objective: To calculate the average freight value (shipping cost) across different states to identify expensive logistics routes.
 
-Step 3.1 : Extracting Shipping Costs (Freight Value)
+Step 3.1: Extracting Shipping Costs (Freight Value)
 Logic: Mapping the delivery charges to their respective orders.
 
+```sql
 SELECT 
     o.order_id, 
     o.customer_id, 
@@ -197,11 +221,12 @@ FROM
     olist_orders_dataset o
 JOIN 
     olist_order_items_dataset i ON o.order_id = i.order_id;
+```
 
-
-Step 3.2 : Mapping Costs to Customer Locations (Double JOIN)
+Step 3.2: Mapping Costs to Customer Locations (Double JOIN)
 Logic: Adding a second join to connect the order logistics with the customer's state.
 
+```sql
 SELECT 
     o.order_id, 
     c.customer_state, 
@@ -212,11 +237,12 @@ JOIN
     olist_order_items_dataset i ON o.order_id = i.order_id
 JOIN 
     olist_customers_dataset c ON o.customer_id = c.customer_id;
+```
 
-
-Step 3.3 : Final Output - Average Shipping Cost per State
+Step 3.3: Final Output - Average Shipping Cost per State
 Logic: Calculating the average shipping cost grouped by state to highlight expensive delivery zones.
 
+```sql
 SELECT 
     c.customer_state AS State, 
     ROUND(AVG(i.freight_value), 2) AS Average_Shipping_Cost
@@ -231,3 +257,4 @@ GROUP BY
 ORDER BY 
     Average_Shipping_Cost DESC
 LIMIT 10;
+```
